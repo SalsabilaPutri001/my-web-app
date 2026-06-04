@@ -20,9 +20,19 @@ export async function GET() {
       LIMIT 10
     `);
 
+    const formattedData = results.map(item => ({
+      rental_id: item.rental_id,
+      first_name: item.first_name,
+      last_name: item.last_name,
+      title: item.title,
+      rental_date: item.rental_date,
+      return_date: item.return_date,
+      amount: parseFloat(item.amount) || 0
+    }));
+
     return Response.json({
       success: true,
-      data: results
+      data: formattedData
     });
   } catch (error) {
     return Response.json(

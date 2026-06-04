@@ -25,10 +25,10 @@ export async function GET() {
     return Response.json({
       success: true,
       data: {
-        totalRevenue: revenueResult[0].total || 0,
-        totalRentals: rentalResult[0].total || 0,
-        totalCustomers: customerResult[0].total || 0,
-        totalFilms: filmResult[0].total || 0
+        totalRevenue: parseFloat(revenueResult[0].total) || 0,
+        totalRentals: parseInt(rentalResult[0].total) || 0,
+        totalCustomers: parseInt(customerResult[0].total) || 0,
+        totalFilms: parseInt(filmResult[0].total) || 0
       }
     });
   } catch (error) {

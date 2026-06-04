@@ -16,9 +16,15 @@ export async function GET() {
       LIMIT 10
     `);
 
+    const formattedData = results.map(item => ({
+      title: item.title,
+      rental_count: parseInt(item.rental_count) || 0,
+      revenue: parseFloat(item.revenue) || 0
+    }));
+
     return Response.json({
       success: true,
-      data: results
+      data: formattedData
     });
   } catch (error) {
     return Response.json(

@@ -15,9 +15,15 @@ export async function GET() {
       LIMIT 30
     `);
 
+    const formattedData = results.reverse().map(item => ({
+      rental_date: item.rental_date,
+      rental_count: parseInt(item.rental_count) || 0,
+      daily_revenue: parseFloat(item.daily_revenue) || 0
+    }));
+
     return Response.json({
       success: true,
-      data: results.reverse()
+      data: formattedData
     });
   } catch (error) {
     return Response.json(
