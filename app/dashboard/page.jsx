@@ -1,108 +1,285 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { StatCard } from '@/components/StatCard';
-import { TopFilmsChart } from '@/components/TopFilmsChart';
-import { RevenueTrendChart } from '@/components/RevenueTrendChart';
-import { RecentRentalsTable } from '@/components/RecentRentalsTable';
+import { useState } from 'react';
+import { useDashboardStore } from '@/store/dashboardStore';
+import { DashboardLayout, GridLayout, StatsRow } from '@/components/dashboard';
+import { LineChart, AreaChart, BarChart, DonutChart } from '@/components/charts';
+import { SimpleTable } from '@/components/tables';
+import { DateRangePicker, AdvancedFilters, QuickFilters } from '@/components/filters';
+import { Button, Card } from '@/components/shared';
+import { formatCurrency, formatNumber, formatDate, formatDateRange } from '@/lib/utils';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState(null);
-  const [topFilms, setTopFilms] = useState([]);
-  const [revenueTrend, setRevenueTrend] = useState([]);
-  const [recentRentals, setRecentRentals] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const store = useDashboardStore();
+  const { data, dateRange, setDateRange, selectedRegions, selectedCategories, selectedSegments } = store;
+  
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [quickFilter, setQuickFilter] = useState('month');
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [statsRes, filmsRes, trendRes, rentalsRes] = await Promise.all([
-          fetch('/api/dashboard/stats'),
-          fetch('/api/dashboard/top-films'),
-          fetch('/api/dashboard/revenue-trend'),
-          fetch('/api/dashboard/recent-rentals'),
-        ]);
+  const handleQuickFilter = (filter) => {
+    const now = new Date();
+    let from = new Date();
 
-        if (statsRes.ok) {
-          const data = await statsRes.json();
-          setStats(data.data);
-        }
-        if (filmsRes.ok) {
-          const data = await filmsRes.json();
-          setTopFilms(data.data);
-        }
-        if (trendRes.ok) {
-          const data = await trendRes.json();
-          setRevenueTrend(data.data);
-        }
-        if (rentalsRes.ok) {
-          const data = await rentalsRes.json();
-          setRecentRentals(data.data);
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
+    switch (filter) {
+      case 'today':
+        from.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        from.setDate(now.getDate() - now.getDay());
+        break;
+      case 'month':
+        from.setDate(1);
+        break;
+      case 'quarter':
+        from.setMonth(Math.floor(now.getMonth() / 3) * 3);
+        from.setDate(1);
+        break;
+      case 'year':
+        from.setMonth(0);
+        from.setDate(1);
+        break;
     }
 
-    fetchData();
-  }, []);
+    setQuickFilter(filter);
+    setDateRange(from, now);
+  };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-2xl font-semibold text-gray-800">Loading...</div>
-      </div>
-    );
-  }
+  const kpis = data.kpis;
+  const dailySales = data.dailySales;
+  const topProducts = data.topProducts;
+  const topCustomers = data.topCustomers;
+  const productCategories = data.productCategoryDistribution;
+  const regionalSales = data.regionalSales;
+
+  // Prepare chart data
+  const salesTrendData = dailySales.map((item) => ({
+    name: formatDate(item.date, 'short'),
+    revenue: item.revenue,
+    orders: item.orders,
+    profit: item.profit,
+  }));
+
+  const categoryData = productCategories.map((item) => ({
+    name: item.name,
+    value: item.value,
+  }));
+
+  const topProductsTableColumns = [
+    { key: 'name', label: 'Product' },
+    { key: 'category', label: 'Category' },
+    {
+      key: 'revenue',
+      label: 'Revenue',
+      render: (value) => formatCurrency(value),
+    },
+    { key: 'units', label: 'Units' },
+    {
+      key: 'growth',
+      label: 'Growth',
+      render: (value) => (
+        <span className={value > 0 ? 'text-green-600' : 'text-red-600'}>
+          {value > 0 ? '↑' : '↓'} {Math.abs(value)}%
+        </span>
+      ),
+    },
+  ];
+
+  const topCustomersTableColumns = [
+    { key: 'name', label: 'Customer' },
+    { key: 'segment', label: 'Segment' },
+    {
+      key: 'revenue',
+      label: 'Revenue',
+      render: (value) => formatCurrency(value),
+    },
+    { key: 'orders', label: 'Orders' },
+  ];
+
+  const regionTableColumns = [
+    { key: 'region', label: 'Region' },
+    {
+      key: 'revenue',
+      label: 'Revenue',
+      render: (value) => formatCurrency(value),
+    },
+    { key: 'orders', label: 'Orders' },
+    {
+      key: 'growth',
+      label: 'Growth',
+      render: (value) => (
+        <span className={value > 0 ? 'text-green-600' : 'text-red-600'}>
+          {value > 0 ? '↑' : '↓'} {Math.abs(value)}%
+        </span>
+      ),
+    },
+  ];
+
+  const statsData = [
+    {
+      id: 'revenue',
+      label: 'Total Revenue',
+      value: formatCurrency(kpis.totalRevenue),
+      change: kpis.revenueGrowth,
+      icon: '💰',
+    },
+    {
+      id: 'orders',
+      label: 'Total Orders',
+      value: formatNumber(kpis.totalOrders),
+      change: 15,
+      icon: '📦',
+    },
+    {
+      id: 'customers',
+      label: 'Total Customers',
+      value: formatNumber(kpis.totalCustomers),
+      change: 8,
+      icon: '👥',
+    },
+    {
+      id: 'profit',
+      label: 'Gross Profit',
+      value: formatCurrency(kpis.totalProfit),
+      change: kpis.revenueGrowth,
+      icon: '📈',
+    },
+    {
+      id: 'aov',
+      label: 'Avg Order Value',
+      value: formatCurrency(kpis.avgOrderValue),
+      change: 5,
+      icon: '💵',
+    },
+    {
+      id: 'margin',
+      label: 'Profit Margin',
+      value: `${kpis.profitMargin}%`,
+      change: 2,
+      icon: '📊',
+    },
+  ];
+
+  const headerActions = (
+    <div className="flex items-center gap-3">
+      <Button
+        variant="outline"
+        onClick={() => setShowAdvancedFilters(true)}
+      >
+        🔍 Filters
+      </Button>
+      <Button variant="primary">
+        📥 Export
+      </Button>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Sales Dashboard</h1>
-          <p className="text-gray-600">Sakila Film Rental Management System</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Total Revenue"
-            value={stats ? `$${Number(stats.totalRevenue || 0).toFixed(2)}` : '$0.00'}
-            icon="💰"
-            color="bg-blue-500"
-          />
-          <StatCard
-            title="Total Rentals"
-            value={stats?.totalRentals || 0}
-            icon="🎬"
-            color="bg-green-500"
-          />
-          <StatCard
-            title="Total Customers"
-            value={stats?.totalCustomers || 0}
-            icon="👥"
-            color="bg-purple-500"
-          />
-          <StatCard
-            title="Total Films"
-            value={stats?.totalFilms || 0}
-            icon="📚"
-            color="bg-orange-500"
-          />
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {topFilms.length > 0 && <TopFilmsChart data={topFilms} />}
-          {revenueTrend.length > 0 && <RevenueTrendChart data={revenueTrend} />}
-        </div>
-
-        {/* Recent Rentals Table */}
-        {recentRentals.length > 0 && <RecentRentalsTable data={recentRentals} />}
+    <DashboardLayout
+      title="Executive Dashboard"
+      subtitle={`Data from ${formatDateRange(dateRange.from, dateRange.to)}`}
+      actions={headerActions}
+    >
+      {/* Quick Filters */}
+      <div className="mb-8">
+        <QuickFilters
+          filters={quickFilter}
+          onFilterChange={handleQuickFilter}
+        />
       </div>
-    </div>
+
+      {/* Date Range Picker */}
+      <Card className="mb-8">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <DateRangePicker
+              from={dateRange.from}
+              to={dateRange.to}
+              onChange={setDateRange}
+            />
+          </div>
+          {(selectedRegions.length > 0 || selectedCategories.length > 0 || selectedSegments.length > 0) && (
+            <div className="text-sm text-gray-600">
+              {selectedRegions.length} region(s), {selectedCategories.length} category(ies), {selectedSegments.length} segment(s) selected
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* KPI Cards */}
+      <div className="mb-8">
+        <StatsRow stats={statsData} />
+      </div>
+
+      {/* Charts Section */}
+      <GridLayout cols={2} gap={6} className="mb-8">
+        <div className="lg:col-span-2">
+          <LineChart
+            data={salesTrendData}
+            title="Sales Trend (30 Days)"
+            dataKeys={['revenue', 'profit']}
+            height={300}
+          />
+        </div>
+      </GridLayout>
+
+      {/* Middle Row */}
+      <GridLayout cols={2} gap={6} className="mb-8">
+        <AreaChart
+          data={salesTrendData}
+          title="Revenue Trend"
+          dataKey="revenue"
+          height={300}
+        />
+        <DonutChart
+          data={categoryData}
+          title="Revenue by Category"
+          height={300}
+        />
+      </GridLayout>
+
+      {/* Tables Section */}
+      <GridLayout cols={2} gap={6} className="mb-8">
+        <SimpleTable
+          data={topProducts}
+          columns={topProductsTableColumns}
+          title="Top 5 Products"
+          maxRows={5}
+        />
+        <SimpleTable
+          data={topCustomers}
+          columns={topCustomersTableColumns}
+          title="Top Customers"
+          maxRows={5}
+        />
+      </GridLayout>
+
+      {/* Regional Sales */}
+      <GridLayout cols={1} gap={6} className="mb-8">
+        <SimpleTable
+          data={regionalSales}
+          columns={regionTableColumns}
+          title="Sales by Region"
+          maxRows={10}
+        />
+      </GridLayout>
+
+      {/* Advanced Filters Drawer */}
+      <AdvancedFilters
+        isOpen={showAdvancedFilters}
+        onClose={() => setShowAdvancedFilters(false)}
+        filters={{
+          regions: selectedRegions,
+          categories: selectedCategories,
+          segments: selectedSegments,
+        }}
+        onFiltersChange={(filters) => {
+          // Update filters in store
+          // This is where you'd call store actions
+        }}
+        regions={['Jawa Barat', 'Jawa Tengah', 'Jawa Timur', 'Sumatera Utara', 'Sulawesi Selatan']}
+        categories={['Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Food & Beverage']}
+        segments={['Premium', 'Mid-Market', 'SME', 'Startup', 'Enterprise']}
+      />
+    </DashboardLayout>
   );
 }
