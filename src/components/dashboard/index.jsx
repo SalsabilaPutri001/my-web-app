@@ -87,7 +87,7 @@ export function DashboardHeader({
 
   return (
     <header className={`border-b border-gray-200 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-      <div className="flex items-center justify-between p-6 max-w-7xl mx-auto gap-4">
+      <div className="flex items-center justify-between p-6 max-w-screen-2xl mx-auto gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-4">
             {!sidebarOpen && (
@@ -163,7 +163,7 @@ export function DashboardLayout({
 
         {/* Content */}
         <div className={`flex-1 overflow-auto ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-          <div className="max-w-7xl mx-auto p-6">
+          <div className="max-w-screen-2xl mx-auto p-6 lg:p-8">
             {children}
           </div>
         </div>
@@ -179,6 +179,7 @@ export function GridLayout({
   cols = 3,
   gap = 6,
   children,
+  className = '',
 }) {
   const colClasses = {
     1: 'grid-cols-1',
@@ -194,7 +195,7 @@ export function GridLayout({
   };
 
   return (
-    <div className={`grid ${colClasses[cols]} ${gapClasses[gap]}`}>
+    <div className={`grid ${colClasses[cols]} ${gapClasses[gap]} ${className}`}>
       {children}
     </div>
   );

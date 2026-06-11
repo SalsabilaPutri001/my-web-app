@@ -2,23 +2,31 @@
 
 import { useState } from 'react';
 import { useDashboardStore } from '@/store/dashboardStore';
-import { DashboardLayout, GridLayout, StatsRow } from '@/components/dashboard';
-import { LineChart, AreaChart, BarChart, DonutChart } from '@/components/charts';
+import { DashboardLayout } from '@/components/dashboard';
+import { LineChart, BarChart, DonutChart } from '@/components/charts';
 import { SimpleTable } from '@/components/tables';
 import { DateRangePicker, AdvancedFilters, QuickFilters } from '@/components/filters';
-import { Button, Card } from '@/components/shared';
+import { Badge, Button, Card } from '@/components/shared';
 import { formatCurrency, formatNumber, formatDate, formatDateRange } from '@/lib/utils';
 
 export default function Dashboard() {
   const store = useDashboardStore();
-  const { data, dateRange, setDateRange, selectedRegions, selectedCategories, selectedSegments } = store;
-  
+  const {
+    data,
+    dateRange,
+    setDateRange,
+    selectedRegions,
+    selectedCategories,
+    selectedSegments,
+    clearAllFilters,
+  } = store;
+
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [quickFilter, setQuickFilter] = useState('month');
 
   const handleQuickFilter = (filter) => {
     const now = new Date();
-    let from = new Date();
+    const from = new Date();
 
     switch (filter) {
       case 'today':
@@ -38,9 +46,22 @@ export default function Dashboard() {
         from.setMonth(0);
         from.setDate(1);
         break;
+      default:
+        from.setDate(1);
+        break;
     }
 
     setQuickFilter(filter);
+    setDateRange(from, now);
+  };
+
+  const handleResetFilters = () => {
+    const now = new Date();
+    const from = new Date();
+
+    from.setDate(1);
+    setQuickFilter('month');
+    clearAllFilters();
     setDateRange(from, now);
   };
 
@@ -51,7 +72,6 @@ export default function Dashboard() {
   const productCategories = data.productCategoryDistribution;
   const regionalSales = data.regionalSales;
 
-  // Prepare chart data
   const salesTrendData = dailySales.map((item) => ({
     name: formatDate(item.date, 'short'),
     revenue: item.revenue,
@@ -62,6 +82,12 @@ export default function Dashboard() {
   const categoryData = productCategories.map((item) => ({
     name: item.name,
     value: item.value,
+  }));
+
+  const regionalChartData = regionalSales.slice(0, 6).map((item) => ({
+    name: item.region,
+    revenue: item.revenue,
+    orders: item.orders,
   }));
 
   const topProductsTableColumns = [
@@ -114,13 +140,14 @@ export default function Dashboard() {
     },
   ];
 
-  const statsData = [
+  const kpiCards = [
     {
       id: 'revenue',
       label: 'Total Revenue',
       value: formatCurrency(kpis.totalRevenue),
       change: kpis.revenueGrowth,
       icon: '💰',
+      tone: 'from-sky-500 to-cyan-400',
     },
     {
       id: 'orders',
@@ -128,6 +155,7 @@ export default function Dashboard() {
       value: formatNumber(kpis.totalOrders),
       change: 15,
       icon: '📦',
+      tone: 'from-indigo-500 to-violet-400',
     },
     {
       id: 'customers',
@@ -135,6 +163,7 @@ export default function Dashboard() {
       value: formatNumber(kpis.totalCustomers),
       change: 8,
       icon: '👥',
+      tone: 'from-emerald-500 to-teal-400',
     },
     {
       id: 'profit',
@@ -142,6 +171,7 @@ export default function Dashboard() {
       value: formatCurrency(kpis.totalProfit),
       change: kpis.revenueGrowth,
       icon: '📈',
+      tone: 'from-amber-500 to-orange-400',
     },
     {
       id: 'aov',
@@ -149,6 +179,7 @@ export default function Dashboard() {
       value: formatCurrency(kpis.avgOrderValue),
       change: 5,
       icon: '💵',
+      tone: 'from-fuchsia-500 to-pink-400',
     },
     {
       id: 'margin',
@@ -156,20 +187,34 @@ export default function Dashboard() {
       value: `${kpis.profitMargin}%`,
       change: 2,
       icon: '📊',
+      tone: 'from-rose-500 to-red-400',
     },
+  ];
+
+  const quickFilterLabel =
+    quickFilter === 'today'
+      ? 'Today'
+      : quickFilter === 'week'
+        ? 'This Week'
+        : quickFilter === 'quarter'
+          ? 'This Quarter'
+          : quickFilter === 'year'
+            ? 'This Year'
+            : 'This Month';
+
+  const filterSummary = [
+    { label: 'Period', value: quickFilterLabel },
+    { label: 'Regions', value: `${selectedRegions.length}` },
+    { label: 'Categories', value: `${selectedCategories.length}` },
+    { label: 'Segments', value: `${selectedSegments.length}` },
   ];
 
   const headerActions = (
     <div className="flex items-center gap-3">
-      <Button
-        variant="outline"
-        onClick={() => setShowAdvancedFilters(true)}
-      >
+      <Button variant="outline" onClick={() => setShowAdvancedFilters(true)}>
         🔍 Filters
       </Button>
-      <Button variant="primary">
-        📥 Export
-      </Button>
+      <Button variant="primary">📥 Export</Button>
     </div>
   );
 
@@ -179,107 +224,98 @@ export default function Dashboard() {
       subtitle={`Data from ${formatDateRange(dateRange.from, dateRange.to)}`}
       actions={headerActions}
     >
-      {/* Quick Filters */}
-      <div className="mb-8">
-        <QuickFilters
-          filters={quickFilter}
-          onFilterChange={handleQuickFilter}
-        />
-      </div>
-
-      {/* Date Range Picker */}
-      <Card className="mb-8">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <DateRangePicker
-              from={dateRange.from}
-              to={dateRange.to}
-              onChange={setDateRange}
-            />
-          </div>
-          {(selectedRegions.length > 0 || selectedCategories.length > 0 || selectedSegments.length > 0) && (
-            <div className="text-sm text-gray-600">
-              {selectedRegions.length} region(s), {selectedCategories.length} category(ies), {selectedSegments.length} segment(s) selected
+      <div className="space-y-6">
+        <Card className="rounded-2xl border-slate-200 shadow-sm">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Executive Controls</p>
+                <h2 className="mt-2 text-lg font-semibold text-slate-900">Filters and time range</h2>
+              </div>
+              <QuickFilters filters={quickFilter} onFilterChange={handleQuickFilter} />
+              <div className="flex flex-wrap gap-2">
+                {filterSummary.map((item) => (
+                  <Badge key={item.label} variant="gray" className="bg-slate-100 text-slate-700">
+                    {item.label}: {item.value}
+                  </Badge>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
-      </Card>
 
-      {/* KPI Cards */}
-      <div className="mb-8">
-        <StatsRow stats={statsData} />
+            <div className="flex flex-col gap-4 xl:w-full xl:max-w-xl">
+              <DateRangePicker from={dateRange.from} to={dateRange.to} onChange={setDateRange} />
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {(selectedRegions.length > 0 || selectedCategories.length > 0 || selectedSegments.length > 0) && (
+                  <span className="text-sm text-slate-500">
+                    {selectedRegions.length} region(s), {selectedCategories.length} category(ies), {selectedSegments.length} segment(s) selected
+                  </span>
+                )}
+                <Button variant="secondary" onClick={handleResetFilters}>
+                  Reset Filters
+                </Button>
+                <Button variant="outline" onClick={() => setShowAdvancedFilters(true)}>
+                  Advanced Filters
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          {kpiCards.map((stat) => (
+            <Card key={stat.id} className="relative overflow-hidden rounded-2xl border-slate-200 p-5 shadow-sm">
+              <div className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${stat.tone}`} />
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{stat.value}</p>
+                  <p className={`mt-2 text-sm font-medium ${stat.change > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {stat.change > 0 ? '↑' : '↓'} {Math.abs(stat.change)}%
+                  </p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-lg">
+                  {stat.icon}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-12">
+          <div className="xl:col-span-8">
+            <LineChart data={salesTrendData} title="Sales Trend" dataKeys={['revenue', 'profit']} height={340} />
+          </div>
+          <div className="xl:col-span-4 space-y-6">
+            <DonutChart data={categoryData} title="Revenue by Category" height={300} />
+            <BarChart data={regionalChartData} title="Revenue by Region" dataKey="revenue" height={300} />
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-2">
+          <SimpleTable data={topProducts} columns={topProductsTableColumns} title="Top 5 Products" maxRows={5} />
+          <SimpleTable data={topCustomers} columns={topCustomersTableColumns} title="Top Customers" maxRows={5} />
+        </section>
+
+        <section>
+          <SimpleTable data={regionalSales} columns={regionTableColumns} title="Sales by Region" maxRows={10} />
+        </section>
+
+        <AdvancedFilters
+          isOpen={showAdvancedFilters}
+          onClose={() => setShowAdvancedFilters(false)}
+          filters={{
+            regions: selectedRegions,
+            categories: selectedCategories,
+            segments: selectedSegments,
+          }}
+          onFiltersChange={() => {
+            // Intentionally left as a visual shell for now.
+          }}
+          regions={['Jawa Barat', 'Jawa Tengah', 'Jawa Timur', 'Sumatera Utara', 'Sulawesi Selatan']}
+          categories={['Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Food & Beverage']}
+          segments={['Premium', 'Mid-Market', 'SME', 'Startup', 'Enterprise']}
+        />
       </div>
-
-      {/* Charts Section */}
-      <GridLayout cols={2} gap={6} className="mb-8">
-        <div className="lg:col-span-2">
-          <LineChart
-            data={salesTrendData}
-            title="Sales Trend (30 Days)"
-            dataKeys={['revenue', 'profit']}
-            height={300}
-          />
-        </div>
-      </GridLayout>
-
-      {/* Middle Row */}
-      <GridLayout cols={2} gap={6} className="mb-8">
-        <AreaChart
-          data={salesTrendData}
-          title="Revenue Trend"
-          dataKey="revenue"
-          height={300}
-        />
-        <DonutChart
-          data={categoryData}
-          title="Revenue by Category"
-          height={300}
-        />
-      </GridLayout>
-
-      {/* Tables Section */}
-      <GridLayout cols={2} gap={6} className="mb-8">
-        <SimpleTable
-          data={topProducts}
-          columns={topProductsTableColumns}
-          title="Top 5 Products"
-          maxRows={5}
-        />
-        <SimpleTable
-          data={topCustomers}
-          columns={topCustomersTableColumns}
-          title="Top Customers"
-          maxRows={5}
-        />
-      </GridLayout>
-
-      {/* Regional Sales */}
-      <GridLayout cols={1} gap={6} className="mb-8">
-        <SimpleTable
-          data={regionalSales}
-          columns={regionTableColumns}
-          title="Sales by Region"
-          maxRows={10}
-        />
-      </GridLayout>
-
-      {/* Advanced Filters Drawer */}
-      <AdvancedFilters
-        isOpen={showAdvancedFilters}
-        onClose={() => setShowAdvancedFilters(false)}
-        filters={{
-          regions: selectedRegions,
-          categories: selectedCategories,
-          segments: selectedSegments,
-        }}
-        onFiltersChange={(filters) => {
-          // Update filters in store
-          // This is where you'd call store actions
-        }}
-        regions={['Jawa Barat', 'Jawa Tengah', 'Jawa Timur', 'Sumatera Utara', 'Sulawesi Selatan']}
-        categories={['Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Food & Beverage']}
-        segments={['Premium', 'Mid-Market', 'SME', 'Startup', 'Enterprise']}
-      />
     </DashboardLayout>
   );
 }
