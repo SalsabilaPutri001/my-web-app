@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { DashboardLayout } from '@/components/dashboard';
 import { LineChart, BarChart, DonutChart } from '@/components/charts';
@@ -23,6 +23,12 @@ export default function Dashboard() {
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [quickFilter, setQuickFilter] = useState('month');
+
+  useEffect(() => {
+    // generate mock data only on client after hydration
+    if (store.initData) store.initData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleQuickFilter = (filter) => {
     const now = new Date();

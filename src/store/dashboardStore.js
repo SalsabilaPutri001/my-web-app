@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { generateAllDashboardData, REGIONS, PRODUCT_CATEGORIES, CUSTOMER_SEGMENTS } from '../mock/data';
 
-// Initialize data once
+// Initialize data once (only generated on client via refreshData/initData)
 let cachedData = null;
 
 function getDashboardData() {
@@ -14,9 +14,26 @@ function getDashboardData() {
   return cachedData;
 }
 
+const EMPTY_PLACEHOLDER = {
+  kpis: {
+    totalRevenue: 0,
+    totalOrders: 0,
+    totalCustomers: 0,
+    totalProfit: 0,
+    avgOrderValue: 0,
+    profitMargin: 0,
+    revenueGrowth: 0,
+  },
+  dailySales: [],
+  topProducts: [],
+  topCustomers: [],
+  productCategoryDistribution: [],
+  regionalSales: [],
+};
+
 export const useDashboardStore = create((set, get) => ({
   // Data state
-  data: getDashboardData(),
+  data: EMPTY_PLACEHOLDER,
   isLoading: false,
   error: null,
 
@@ -126,11 +143,19 @@ export const useDashboardStore = create((set, get) => ({
 
   refreshData: () => {
     set({ isLoading: true });
-    // Simulate API call
+    // Generate mock data on the client (or when explicitly called)
+    setTimeout(() => {
+      cachedData = getDashboardData();
+      set({ data: cachedData, isLoading: false });
+    }, 200);
+  },
+  // Convenience init that forces fresh generation
+  initData: () => {
+    set({ isLoading: true });
     setTimeout(() => {
       cachedData = generateAllDashboardData();
       set({ data: cachedData, isLoading: false });
-    }, 1000);
+    }, 200);
   },
 }));
 
